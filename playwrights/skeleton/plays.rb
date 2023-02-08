@@ -87,12 +87,12 @@ end
 
 class Playwright
 
-  attr_accessor :name, :birth_year
-  attr_reader :id
+  attr_accessor :id, :name, :birth_year
+  # attr_reader :id
 
   def self.all 
 
-    data_im_querying = PlayDBConnection.instance.execute("SELECT * FROM playwrights;")
+    data_im_querying = PlayDBConnection.instance.execute("SELECT * FROM playwrights")
 
     data_im_querying.map { |info| Playwright.new(info) }
 
@@ -114,15 +114,69 @@ class Playwright
   
   def initialize(info_hash)
 
-    @name = info_hash[name]
-    @birth_year = info_hash[birth_year]
-    @id = info_hash[id]
+    @id = info_hash['id']
+    @name = info_hash["name"]
+    @birth_year = info_hash["birth_year"]
 
   end
 
   def create
+    raise "already in DB uwu" if @id != nil
+
+    data_to_insert = PlayDBConnection.instance.execute(<<-SQL, @name, @birthyear)
+
+      INSERT INTO
+        playwrights
+      VALUE
+        (?, ?)
+
+    SQL
+
+    @id = PlayDBConnection.instance.last_insert_row_id
+
   end
 
+  def update
+
+    if self.id == nil
+      raise "#{self} is not in DB. No DB ID. Use create first to obtain row and ID"
+    end
+
+    data_to_update = PlayDBConnection.instance.execute(<<-SQL, @name, @birthyear, @id)
+
+      UPDATE
+        playwright
+      SET
+        name = ?, birthyear = ?
+      WHERE
+        id = ?
+
+    SQL
+
+  end
+
+
+  def get_plays #should return all plays written by playwright
+
+    if id == nil
+      raise "playwright currently not in DB. No ID to point to any plays."
+    end
+
+    plays_query = PlayDBConnection.instance.execute(<<-SQL, @name)
+
+      SELECT
+        title
+      FROM
+        plays
+      JOIN playwrights
+        ON plays.playwright_id = playwrights.id
+      WHERE
+        playwrights.name LIKE ?
+
+    SQL
+
+
+  end
 
 
 end
